@@ -1,0 +1,7 @@
+<launch>
+ 
+  <remap from="/odometry" to="/sensors/odometry/pose"/>
+  <remap from="/cmd_vel" to="/sensors/odometry/velocity/cmd"/>
+  <node pkg="pure_pursuit" type="pure_pursuit" name="pure_pursuit" output="screen" />
+
+</launch>
