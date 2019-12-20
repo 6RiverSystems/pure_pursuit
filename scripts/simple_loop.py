@@ -55,7 +55,7 @@ class FigureEight:
 		path = Path()
 		path.header.seq = self.pathLoop
 		path.header.frame_id = 'map'
-		for i in range(97):
+		for i in range(99):
 			newPose = PoseStamped()
 			newPose.header.seq = i
 			newPose.header.frame_id = 'map'
