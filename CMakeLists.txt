@@ -53,7 +53,7 @@ install(DIRECTORY launch/
 	DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/launch
 )
 
-catkin_install_python(PROGRAMS scripts/figure_eight.py 
+catkin_install_python(PROGRAMS scripts/figure_eight.py scripts/simple_loop.py 
     DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/scripts)
 
 install(TARGETS pure_pursuit

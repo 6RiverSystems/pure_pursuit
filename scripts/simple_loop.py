@@ -10,6 +10,8 @@ import tf
 from srslib_framework.msg import MsgUpdateToteLights
 
 
+
+
 def messageCreation(message, cmd, sC, eC, sS, eS, freq):
     message.lightCmd = cmd
     message.startColor.r = sC[0]
@@ -53,34 +55,19 @@ class FigureEight:
 		path = Path()
 		path.header.seq = self.pathLoop
 		path.header.frame_id = 'map'
-		if(self.firstLoop):
-			for i in range(95):
-				newPose = PoseStamped()
-				newPose.header.seq = i
-				newPose.header.frame_id = 'map'
-				newPose.pose.position.x = math.cos(i*3.14159/50.0) * self.radius + self.offsetX
-				newPose.pose.position.y = math.sin(i*3.14159/50.0) * self.radius + self.offsetY
-				newPose.pose.position.z = 0
-				newQuaternion = tf.transformations.quaternion_from_euler(0, 0, i*3.14159/50.0 + 3.14159/2)
-				newPose.pose.orientation.x = 0
-				newPose.pose.orientation.y = 0
-				newPose.pose.orientation.z = newQuaternion[2]
-				newPose.pose.orientation.w = newQuaternion[3]
-				path.poses.append(newPose)
-		else:
-			for i in range(95):
-				newPose = PoseStamped()
-				newPose.header.seq = i
-				newPose.header.frame_id = 'map'
-				newPose.pose.position.x = -1 * math.cos(i*3.14159/50.0) * self.radius + self.offsetX + 2 * self.radius
-				newPose.pose.position.y = math.sin(i*3.14159/50.0) * self.radius + self.offsetY
-				newPose.pose.position.z = 0
-				newQuaternion = tf.transformations.quaternion_from_euler(0, 0, -1 * i*3.14159/50.0 + 3.14159/2)
-				newPose.pose.orientation.x = 0
-				newPose.pose.orientation.y = 0
-				newPose.pose.orientation.z = newQuaternion[2]
-				newPose.pose.orientation.w = newQuaternion[3]
-				path.poses.append(newPose)
+		for i in range(97):
+			newPose = PoseStamped()
+			newPose.header.seq = i
+			newPose.header.frame_id = 'map'
+			newPose.pose.position.x = math.cos(i*3.14159/50.0) * self.radius + self.offsetX
+			newPose.pose.position.y = math.sin(i*3.14159/50.0) * self.radius + self.offsetY
+			newPose.pose.position.z = 0
+			newQuaternion = tf.transformations.quaternion_from_euler(0, 0, i*3.14159/50.0 + 3.14159/2)
+			newPose.pose.orientation.x = 0
+			newPose.pose.orientation.y = 0
+			newPose.pose.orientation.z = newQuaternion[2]
+			newPose.pose.orientation.w = newQuaternion[3]
+			path.poses.append(newPose)
 		self.goal_pub.publish(path)
 		print "woop"
 		self.sendGoal = False
@@ -113,10 +100,10 @@ class FigureEight:
 		
 
 if __name__ == '__main__':
-	rospy.init_node('figure_eight', anonymous=True)
-	offX = rospy.get_param("figure_eight/offsetX", 40)
-	offY = rospy.get_param("figure_eight/offsetY", 7)
-	rad = rospy.get_param("figure_eight/radius", 4.5)
+	rospy.init_node('simple_loop', anonymous=True)
+	offX = rospy.get_param("simple_loop/offsetX", 40)
+	offY = rospy.get_param("simple_loop/offsetY", 7)
+	rad = rospy.get_param("simple_loop/radius", 2)
 	hs = FigureEight(offX, offY, rad)
 	time.sleep(5.0)
 	rate = rospy.Rate(200) # 10hz
