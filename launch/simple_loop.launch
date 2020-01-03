@@ -1,0 +1,12 @@
+<launch>
+ 
+  <remap from="/odometry" to="/sensors/odometry/pose"/>
+  <remap from="/cmd_vel" to="/sensors/odometry/velocity/cmd"/>
+  <node pkg="pure_pursuit" type="pure_pursuit" name="simple_loop" output="screen" />
+  <param name="simple_loop/offsetX" value="28"/> 
+  <param name="simple_loop/offsetY" value="7"/> 
+  <param name="simple_loop/radius" value="2"/> 
+  <node pkg="pure_pursuit" type="simple_loop.py" name="simple_loop_py"  output="screen">
+  </node>
+
+</launch>
