@@ -40,10 +40,10 @@ class StraightLine:
 	def __init__(self, startPoint, endPoint):
 		self.startPoint = startPoint
 		self.endPoint = endPoint
-		self.vel_sub = rospy.Subscriber(self.VEL_COM_TOPIC, Twist, self.velocityCmdCallback)
-		self.goal_pub = rospy.Publisher(self.GOAL_TOPIC, Path, queue_size=2)
+		#self.vel_sub = rospy.Subscriber(self.VEL_COM_TOPIC, Twist, self.velocityCmdCallback)
+		self.goal_pub = rosp.Publisher(self.GOAL_TOPIC, Path, queue_size=2)
 		self.light_pub = rospy.Publisher(self.LIGHT_TOPIC, MsgUpdateToteLights, queue_size=5)
-		self.timeChange = 1.0
+		self.timeChange = 1.#0
 		self.redTop = True
 		self.changeLights = 0
 
@@ -73,8 +73,8 @@ class StraightLine:
 			newPose = PoseStamped()
 			newPose.header.seq = i
 			newPose.header.frame_id = 'map'
-			newPose.pose.position.x = self.startPoint[0] + (self.endPoint[0] - self.endPoint[0])/100.0
-			newPose.pose.position.y = self.startPoint[1] + (self.endPoint[1] - self.endPoint[1])/100.0
+			newPose.pose.position.x = self.startPoint[0] + i*(self.endPoint[0] - self.startPoint[0])/100.0
+			newPose.pose.position.y = self.startPoint[1] + i*(self.endPoint[1] - self.startPoint[1])/100.0
 			newPose.pose.position.z = 0
 			newQuaternion = tf.transformations.quaternion_from_euler(0, 0,  math.tan((self.endPoint[1] - self.startPoint[1])/( .0001 + self.endPoint[0] - self.startPoint[0])))
 			newPose.pose.orientation.x = 0
@@ -85,15 +85,15 @@ class StraightLine:
 		self.goal_pub.publish(path)
 
 if __name__ == '__main__':
-	rospy.init_node('simple_loop', anonymous=True)
+	rospy.init_node('straigh_line', anonymous=True)
 	startPoint = []
-	startPoint[0] = 10 # x
-	startPoint[1] = 10 # y
+	startPoint.append(13) # x
+	startPoint.append(32) # y
 
 	
-	startPoint = []
-	endPoint[0] = 10 # x
-	endPoint[1] = 10 # y
+	endPoint = []
+	endPoint.append(13) # x
+	endPoint.append(42) # y
 
 
 
