@@ -101,7 +101,7 @@ PurePursuit::PurePursuit() : ld_(1.0), v_max_(0.1), v_(v_max_), w_max_(1.0), pos
   // Get parameters from the parameter server
   nh_private_.param<double>("wheelbase", L_, 1.0);
   nh_private_.param<double>("lookahead_distance", ld_, 1.0);
-  //nh_private_.param<double>("linear_velocity", v_, 0.1);
+  nh_private_.param<double>("linear_velocity", v_, 0.1);
   nh_private_.param<double>("max_rotational_velocity", w_max_, 1.0);
   nh_private_.param<double>("position_tolerance", pos_tol_, 0.1);
   nh_private_.param<double>("steering_angle_velocity", delta_vel_, 100.0);
