@@ -1,0 +1,8 @@
+<launch>
+ 
+  <remap from="/odometry" to="/sensors/odometry/pose"/>
+  <remap from="/cmd_vel" to="/sensors/odometry/velocity/cmd"/>
+  <node pkg="pure_pursuit" type="pure_pursuit" name="simple_loop" output="screen" />
+  <node pkg="pure_pursuit" type="turn_in_place.py" name="turn_in_place"  output="screen"/>
+
+</launch>

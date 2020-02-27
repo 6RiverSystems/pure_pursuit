@@ -337,6 +337,7 @@ void PurePursuit::run()
 void PurePursuit::reconfigure(pure_pursuit::PurePursuitConfig &config, uint32_t level)
 {
   v_max_ = config.max_linear_velocity;
+  w_max_ = config.max_angular_velocity;
 }
 
 int main(int argc, char**argv)
