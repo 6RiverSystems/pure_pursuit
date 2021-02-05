@@ -7,7 +7,7 @@ import math
 import sys
 import time
 import tf
-from srslib_framework.msg import MsgUpdateToteLights
+from srslib_framework.msg import MsgUpdateToteLights, PipeLoopApproachPath
 
 
 def messageCreation(message, cmd, startColor, endColor, startSegment, endSegment, freq):
@@ -42,7 +42,7 @@ class FigureEight:
 		self.radius = radius
 		self.vel_sub = rospy.Subscriber(self.VEL_COM_TOPIC, Twist, self.velocityCmdCallback)
 		self.arrival_sub = rospy.Subscriber(self.ARRIVED_TOPIC, Bool, self.arrivedCallback)
-		self.goal_pub = rospy.Publisher(self.GOAL_TOPIC, Path, queue_size=2)
+		self.goal_pub = rospy.Publisher(self.GOAL_TOPIC, PipeLoopApproachPath, queue_size=2)
 		self.light_pub = rospy.Publisher(self.LIGHT_TOPIC, MsgUpdateToteLights, queue_size=5)
 		self.sendGoal = True
 		self.firstLoop = True
@@ -52,6 +52,8 @@ class FigureEight:
 		self.changeLights = 0
 
 	def sendGoalFunc(self):
+		approach_msg = PipeLoopApproachPath()
+		approach_msg.header.frame_id = 'map'
 		path = Path()
 		path.header.seq = self.pathLoop
 		path.header.frame_id = 'map'
@@ -83,7 +85,11 @@ class FigureEight:
 				newPose.pose.orientation.z = newQuaternion[2]
 				newPose.pose.orientation.w = newQuaternion[3]
 				path.poses.append(newPose)
-		self.goal_pub.publish(path)
+		
+		approach_msg.path = path
+		approach_msg.max_linear_velocity = 1.0
+		approach_msg.max_angular_velocity = 0.6
+		self.goal_pub.publish(approach_msg)
 		print "woop"
 		self.sendGoal = False
 

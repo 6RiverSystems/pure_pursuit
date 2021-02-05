@@ -17,6 +17,7 @@
 #include <std_msgs/Bool.h>
 #include <nav_msgs/Path.h>
 #include <nav_msgs/Odometry.h>
+#include <srslib_framework/PipeLoopApproachPath.h>
 // #include <ackermann_msgs/AckermannDriveStamped.h>
 
 #include <kdl/frames.hpp>
@@ -42,7 +43,7 @@ public:
   void computeVelocities(nav_msgs::Odometry odom);
 
   //! Receive path to follow.
-  void receivePath(nav_msgs::Path path);
+  void receivePath(const srslib_framework::PipeLoopApproachPath& approach_msg);
 
   //! Compute transform that transforms a pose into the robot frame (base_link)
   KDL::Frame transformToBaseLink(const geometry_msgs::Pose& pose,
@@ -61,7 +62,7 @@ public:
 private:
 
   //! Dynamic reconfigure callback.
-  void reconfigure(pure_pursuit::PurePursuitConfig &config, uint32_t level);
+  // void reconfigure(pure_pursuit::PurePursuitConfig &config, uint32_t level);
   
   // Vehicle parameters
   double L_;
@@ -102,7 +103,7 @@ PurePursuit::PurePursuit() : ld_(1.0), v_max_(0.1), v_(v_max_), w_max_(1.0), pos
   // Get parameters from the parameter server
   nh_private_.param<double>("wheelbase", L_, 1.0);
   nh_private_.param<double>("lookahead_distance", ld_, 1.0);
-  //nh_private_.param<double>("linear_velocity", v_, 0.1);
+  nh_private_.param<double>("linear_velocity", v_, 0.1);
   nh_private_.param<double>("max_rotational_velocity", w_max_, 0.6);
   nh_private_.param<double>("position_tolerance", pos_tol_, 0.1);
   // nh_private_.param<double>("steering_angle_velocity", delta_vel_, 100.0);
@@ -132,8 +133,8 @@ PurePursuit::PurePursuit() : ld_(1.0), v_max_(0.1), v_(v_max_), w_max_(1.0), pos
   pub_arrived_ = nh_.advertise<std_msgs::Bool>("arrived", 1);
   // pub_acker_ = nh_.advertise<ackermann_msgs::AckermannDriveStamped>("cmd_acker", 1);
 
-  reconfigure_callback_ = boost::bind(&PurePursuit::reconfigure, this, _1, _2);
-  reconfigure_server_.setCallback(reconfigure_callback_);
+  // reconfigure_callback_ = boost::bind(&PurePursuit::reconfigure, this, _1, _2);
+  // reconfigure_server_.setCallback(reconfigure_callback_);
 }
 
 void PurePursuit::computeVelocities(nav_msgs::Odometry odom)
@@ -277,7 +278,7 @@ void PurePursuit::computeVelocities(nav_msgs::Odometry odom)
   }
 }
 
-void PurePursuit::receivePath(nav_msgs::Path new_path)
+void PurePursuit::receivePath(const srslib_framework::PipeLoopApproachPath& approach_msg)
 {
   // When a new path received, the previous one is simply discarded
   // It is up to the planner/motion manager to make sure that the new
@@ -285,11 +286,13 @@ void PurePursuit::receivePath(nav_msgs::Path new_path)
   // Callbacks are non-interruptible, so this will
   // not interfere with velocity computation callback.
   
-  if (new_path.header.frame_id == map_frame_id_)
+  if (approach_msg.header.frame_id == map_frame_id_)
   {
-    path_ = new_path;
+    path_ = approach_msg.path;
+    v_max_ = approach_msg.max_linear_velocity;
+    w_max_ = approach_msg.max_angular_velocity;
     idx_ = 0;
-    if (new_path.poses.size() > 0)
+    if (approach_msg.path.poses.size() > 0)
     {
       goal_reached_ = false;
     }
@@ -302,7 +305,7 @@ void PurePursuit::receivePath(nav_msgs::Path new_path)
   else
   {
     ROS_WARN_STREAM("The path must be published in the " << map_frame_id_
-                    << " frame! Ignoring path in " << new_path.header.frame_id
+                    << " frame! Ignoring path in " << approach_msg.header.frame_id
                     << " frame!");
   }
   
@@ -340,10 +343,10 @@ void PurePursuit::run()
   ros::spin();
 }
 
-void PurePursuit::reconfigure(pure_pursuit::PurePursuitConfig &config, uint32_t level)
-{
-  v_max_ = config.max_linear_velocity;
-}
+// void PurePursuit::reconfigure(pure_pursuit::PurePursuitConfig &config, uint32_t level)
+// {
+//   v_max_ = config.max_linear_velocity;
+// }
 
 int main(int argc, char**argv)
 {
