@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import rospy
-from std_msgs.msg import String, Header
+from std_msgs.msg import String, Header, Bool
 from nav_msgs.msg import Odometry, Path
 from geometry_msgs.msg import Twist, PoseStamped
 import math
@@ -33,6 +33,7 @@ class FigureEight:
 	VEL_COM_TOPIC = "/sensors/odometry/velocity/cmd"
 	GOAL_TOPIC = "/path_segment"
 	LIGHT_TOPIC = "/drivers/brainstem/cmd/update_tote_lights"
+	ARRIVED_TOPIC = "/arrived"
 	global rospy
 
 	def __init__(self, offsetX, offsetY, radius):
@@ -40,6 +41,7 @@ class FigureEight:
 		self.offsetY = offsetY
 		self.radius = radius
 		self.vel_sub = rospy.Subscriber(self.VEL_COM_TOPIC, Twist, self.velocityCmdCallback)
+		self.arrival_sub = rospy.Subscriber(self.ARRIVED_TOPIC, Bool, self.arrivedCallback)
 		self.goal_pub = rospy.Publisher(self.GOAL_TOPIC, Path, queue_size=2)
 		self.light_pub = rospy.Publisher(self.LIGHT_TOPIC, MsgUpdateToteLights, queue_size=5)
 		self.sendGoal = True
@@ -86,11 +88,11 @@ class FigureEight:
 		self.sendGoal = False
 
 	def velocityCmdCallback(self, msg):
-		if(msg.linear.x == 0 and msg.angular.z == 0):
-			self.sendGoal = True
+		if self.sendGoal:
+			# self.sendGoal = False
 			self.firstLoop =  not self.firstLoop
 			self.pathLoop = self.pathLoop + 1
-		if(self.sendGoal):
+		if self.sendGoal:
 			self.sendGoalFunc()
 		if(rospy.get_time() - self.changeLights > self.timeChange):
 			if(self.redTop):
@@ -109,6 +111,9 @@ class FigureEight:
 				self.light_pub.publish(lightMsg2)
 			self.redTop = not self.redTop
 			self.changeLights = rospy.get_time()
+	
+	def arrivedCallback(self, msg):
+		self.sendGoal = msg.data
 
 		
 

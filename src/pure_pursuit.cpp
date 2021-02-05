@@ -14,9 +14,10 @@
 #include <tf2_ros/transform_broadcaster.h>
 #include <geometry_msgs/TransformStamped.h>
 #include <geometry_msgs/Twist.h>
+#include <std_msgs/Bool.h>
 #include <nav_msgs/Path.h>
 #include <nav_msgs/Odometry.h>
-#include <ackermann_msgs/AckermannDriveStamped.h>
+// #include <ackermann_msgs/AckermannDriveStamped.h>
 
 #include <kdl/frames.hpp>
 
@@ -71,17 +72,17 @@ private:
   double v_max_, v_, w_max_;
   // Control variables for Ackermann steering
   // Steering angle is denoted by delta
-  double delta_, delta_vel_, acc_, jerk_, delta_max_;
+  // double delta_, delta_vel_, acc_, jerk_, delta_max_;
   nav_msgs::Path path_;
   unsigned idx_;
   bool goal_reached_;
   geometry_msgs::Twist cmd_vel_;
-  ackermann_msgs::AckermannDriveStamped cmd_acker_;
+  // ackermann_msgs::AckermannDriveStamped cmd_acker_;
   
   // Ros infrastructure
   ros::NodeHandle nh_, nh_private_;
   ros::Subscriber sub_odom_, sub_path_;
-  ros::Publisher pub_vel_, pub_acker_;
+  ros::Publisher pub_vel_, pub_arrived_; //, pub_acker_;
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
   tf2_ros::TransformBroadcaster tf_broadcaster_;
@@ -102,33 +103,34 @@ PurePursuit::PurePursuit() : ld_(1.0), v_max_(0.1), v_(v_max_), w_max_(1.0), pos
   nh_private_.param<double>("wheelbase", L_, 1.0);
   nh_private_.param<double>("lookahead_distance", ld_, 1.0);
   //nh_private_.param<double>("linear_velocity", v_, 0.1);
-  nh_private_.param<double>("max_rotational_velocity", w_max_, 1.0);
+  nh_private_.param<double>("max_rotational_velocity", w_max_, 0.6);
   nh_private_.param<double>("position_tolerance", pos_tol_, 0.1);
-  nh_private_.param<double>("steering_angle_velocity", delta_vel_, 100.0);
-  nh_private_.param<double>("acceleration", acc_, 100.0);
-  nh_private_.param<double>("jerk", jerk_, 100.0);
-  nh_private_.param<double>("steering_angle_limit", delta_max_, 1.57);
+  // nh_private_.param<double>("steering_angle_velocity", delta_vel_, 100.0);
+  // nh_private_.param<double>("acceleration", acc_, 100.0);
+  // nh_private_.param<double>("jerk", jerk_, 100.0);
+  // nh_private_.param<double>("steering_angle_limit", delta_max_, 1.57);
   nh_private_.param<string>("map_frame_id", map_frame_id_, "map");
   // Frame attached to midpoint of rear axle (for front-steered vehicles).
   nh_private_.param<string>("robot_frame_id", robot_frame_id_, "base_link");
   // Lookahead frame moving along the path as the vehicle is moving.
   nh_private_.param<string>("lookahead_frame_id", lookahead_frame_id_, "lookahead");
   // Frame attached to midpoint of front axle (for front-steered vehicles).
-  nh_private_.param<string>("ackermann_frame_id", acker_frame_id_, "rear_axle_midpoint");
+  // nh_private_.param<string>("ackermann_frame_id", acker_frame_id_, "rear_axle_midpoint");
 
   // Populate messages with static data
   lookahead_.header.frame_id = robot_frame_id_;
   lookahead_.child_frame_id = lookahead_frame_id_;
 
-  cmd_acker_.header.frame_id = acker_frame_id_;
-  cmd_acker_.drive.steering_angle_velocity = delta_vel_;
-  cmd_acker_.drive.acceleration = acc_;
-  cmd_acker_.drive.jerk = jerk_;
+  // cmd_acker_.header.frame_id = acker_frame_id_;
+  // cmd_acker_.drive.steering_angle_velocity = delta_vel_;
+  // cmd_acker_.drive.acceleration = acc_;
+  // cmd_acker_.drive.jerk = jerk_;
   
   sub_path_ = nh_.subscribe("path_segment", 1, &PurePursuit::receivePath, this);
   sub_odom_ = nh_.subscribe("odometry", 1, &PurePursuit::computeVelocities, this);
   pub_vel_ = nh_.advertise<geometry_msgs::Twist>("cmd_vel", 1);
-  pub_acker_ = nh_.advertise<ackermann_msgs::AckermannDriveStamped>("cmd_acker", 1);
+  pub_arrived_ = nh_.advertise<std_msgs::Bool>("arrived", 1);
+  // pub_acker_ = nh_.advertise<ackermann_msgs::AckermannDriveStamped>("cmd_acker", 1);
 
   reconfigure_callback_ = boost::bind(&PurePursuit::reconfigure, this, _1, _2);
   reconfigure_server_.setCallback(reconfigure_callback_);
@@ -228,13 +230,13 @@ void PurePursuit::computeVelocities(nav_msgs::Odometry odom)
       cmd_vel_.angular.z = std::min( 2*v_ / ld_2 * yt, w_max_ );
 
       // Compute desired Ackermann steering angle
-      cmd_acker_.drive.steering_angle = std::min( atan2(2 * yt * L_, ld_2), delta_max_ );
+      // cmd_acker_.drive.steering_angle = std::min( atan2(2 * yt * L_, ld_2), delta_max_ );
       
       // Set linear velocity for tracking.
       cmd_vel_.linear.x = v_;
-      cmd_acker_.drive.speed = v_;
+      // cmd_acker_.drive.speed = v_;
 
-      cmd_acker_.header.stamp = ros::Time::now();
+      // cmd_acker_.header.stamp = ros::Time::now();
     }
     else
     {
@@ -247,12 +249,12 @@ void PurePursuit::computeVelocities(nav_msgs::Odometry odom)
       lookahead_.transform.rotation.w = 1.0;
       
       // Stop moving.
-      cmd_vel_.linear.x = 0.0;
-      cmd_vel_.angular.z = 0.0;
+      // cmd_vel_.linear.x = 0.0;
+      // cmd_vel_.angular.z = 0.0;
 
-      cmd_acker_.header.stamp = ros::Time::now();
-      cmd_acker_.drive.steering_angle = 0.0;
-      cmd_acker_.drive.speed = 0.0;
+      // cmd_acker_.header.stamp = ros::Time::now();
+      // cmd_acker_.drive.steering_angle = 0.0;
+      // cmd_acker_.drive.speed = 0.0;
     }
 
     // Publish the lookahead target transform.
@@ -261,9 +263,13 @@ void PurePursuit::computeVelocities(nav_msgs::Odometry odom)
     
     // Publish the velocities
     pub_vel_.publish(cmd_vel_);
+
+    std_msgs::Bool arrived_msg;
+    arrived_msg.data = goal_reached_;
+    pub_arrived_.publish(arrived_msg);
     
     // Publish ackerman steering setpoints
-    pub_acker_.publish(cmd_acker_);
+    // pub_acker_.publish(cmd_acker_);
   }
   catch (tf2::TransformException &ex)
   {
