@@ -1,24 +1,4 @@
 <launch>
- 
-  <!-- Chuck Stack -->
-    <!-- Robot Model -->
-    <include file="$(find srsbot_chuck_description)/launch/model.launch"></include>
-
-    <!-- Midbrain -->
-    <include file="$(find srsnode_midbrain)/launch/node.launch"></include>
-
-
-    <!-- Pose Publisher -->
-    <!-- <node pkg="srsnode_localization" type="pose_publisher" name="pose_pub"/> -->
-
-
-
-      <param name="/use_sim_time" value="false"/>
-        <!-- <include file="$(find srsbot_chuck)/launch/lidar_simulation.launch"/> -->
-
-        <node pkg="tf" type="static_transform_publisher" name="map_to_odom" args="0.0 0.0 0.0 0 0 0.0 /map /odom 100"/>
-        <node pkg="rostopic" type="rostopic" name="amcl_ready_simulation" args="pub --latch /amcl/ready std_msgs/Bool 'data: true'"/>
-
 
   <remap from="/odometry" to="/sensors/odometry/pose"/>
   <remap from="/cmd_vel" to="/sensors/odometry/velocity/cmd"/>
