@@ -204,6 +204,7 @@ void PurePursuit::computeVelocities(nav_msgs::Odometry odom)
       double yt = lookahead_.transform.translation.y;
       double ld_2 = ld_ * ld_;
       cmd_vel_.angular.z = std::min( 2*v_ / ld_2 * yt, w_max_ );
+      cmd_vel_.angular.z = std::max( 2*v_ / ld_2 * yt, -1 * w_max_ );
 
       // Set linear velocity for tracking.
       cmd_vel_.linear.x = v_;
