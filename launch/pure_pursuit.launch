@@ -1,11 +1,11 @@
 <launch>
- 
   <remap from="/odometry" to="/sensors/odometry/pose"/>
   <remap from="/cmd_vel" to="/sensors/odometry/velocity/cmd"/>
-  <remap from="/path_segment" to="/pure_pursuit/path"/>
-  <remap from="/arrived" to="/pure_pursuit/path_reached"/>
-  <remap from="/path_used" to="/pure_pursuit/path_used"/>
+  <remap from="/goal" to="/pure_pursuit/goal"/>
+  <remap from="/arrived" to="/pure_pursuit/arrived"/>
+  <remap from="/path" to="/pure_pursuit/path"/>
   <node pkg="pure_pursuit" type="pure_pursuit" name="pure_pursuit" output="screen">
+    <param name="lookahead_distance" value="0.25"/>
   </node>
 
 </launch>

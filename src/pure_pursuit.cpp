@@ -105,12 +105,11 @@ PurePursuit::PurePursuit() : ld_(1.0), v_max_(0.1), v_(v_max_), w_max_(1.0), pos
   lookahead_.header.frame_id = robot_frame_id_;
   lookahead_.child_frame_id = lookahead_frame_id_;
   
-  sub_path_ = nh_.subscribe("path_segment", 1, &PurePursuit::receivePath, this);
-  sub_path_ = nh_.subscribe("path", 1, &PurePursuit::receivePath, this);
+  sub_path_ = nh_.subscribe("goal", 1, &PurePursuit::receivePath, this);
   sub_odom_ = nh_.subscribe("odometry", 1, &PurePursuit::computeVelocities, this);
   pub_vel_ = nh_.advertise<geometry_msgs::Twist>("cmd_vel", 1);
   pub_arrived_ = nh_.advertise<std_msgs::Bool>("arrived", 1);
-  pub_path_ = nh_.advertise<nav_msgs::Path>("path_used", 1);
+  pub_path_ = nh_.advertise<nav_msgs::Path>("path", 1);
 }
 
 void PurePursuit::computeVelocities(nav_msgs::Odometry odom)
