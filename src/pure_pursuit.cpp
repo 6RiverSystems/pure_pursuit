@@ -76,7 +76,7 @@ private:
   // Ros infrastructure
   ros::NodeHandle nh_, nh_private_;
   ros::Subscriber sub_odom_, sub_path_;
-  ros::Publisher pub_vel_, pub_arrived_; //, pub_acker_;
+  ros::Publisher pub_vel_, pub_arrived_, pub_path_; //, pub_acker_;
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
   tf2_ros::TransformBroadcaster tf_broadcaster_;
@@ -106,9 +106,11 @@ PurePursuit::PurePursuit() : ld_(1.0), v_max_(0.1), v_(v_max_), w_max_(1.0), pos
   lookahead_.child_frame_id = lookahead_frame_id_;
   
   sub_path_ = nh_.subscribe("path_segment", 1, &PurePursuit::receivePath, this);
+  sub_path_ = nh_.subscribe("path", 1, &PurePursuit::receivePath, this);
   sub_odom_ = nh_.subscribe("odometry", 1, &PurePursuit::computeVelocities, this);
   pub_vel_ = nh_.advertise<geometry_msgs::Twist>("cmd_vel", 1);
   pub_arrived_ = nh_.advertise<std_msgs::Bool>("arrived", 1);
+  pub_path_ = nh_.advertise<nav_msgs::Path>("path_used", 1);
 }
 
 void PurePursuit::computeVelocities(nav_msgs::Odometry odom)
@@ -248,7 +250,7 @@ void PurePursuit::receivePath(const srslib_framework::PipeLoopApproachPath& appr
   // path is feasible.
   // Callbacks are non-interruptible, so this will
   // not interfere with velocity computation callback.
-  
+  pub_arrived_.publish(approach_msg.path);
   if (approach_msg.header.frame_id == map_frame_id_)
   {
     path_ = approach_msg.path;
