@@ -70,6 +70,8 @@ private:
   unsigned idx_;
   bool goal_reached_;
   geometry_msgs::Twist cmd_vel_;
+
+  bool activeGoal_ = false;
   
   // Ros infrastructure
   ros::NodeHandle nh_, nh_private_;
@@ -217,13 +219,21 @@ void PurePursuit::computeVelocities(nav_msgs::Odometry odom)
     // Publish the lookahead target transform.
     lookahead_.header.stamp = ros::Time::now();
     tf_broadcaster_.sendTransform(lookahead_);
-    
-    // Publish the velocities
-    pub_vel_.publish(cmd_vel_);
 
-    std_msgs::Bool arrived_msg;
-    arrived_msg.data = goal_reached_;
-    pub_arrived_.publish(arrived_msg);
+    //only publish vel commands when we have an active goal
+    //only publish arrive commands when we have an active goal
+    //reset activeGoal when we have arrived.
+    if(activeGoal_){
+      // Publish the velocities
+      pub_vel_.publish(cmd_vel_);
+      std_msgs::Bool arrived_msg;
+      arrived_msg.data = goal_reached_;
+      pub_arrived_.publish(arrived_msg);
+      if(goal_reached_){
+        activeGoal_ = false;
+      }
+    }
+    
   }
   catch (tf2::TransformException &ex)
   {
@@ -247,10 +257,12 @@ void PurePursuit::receivePath(const srslib_framework::PipeLoopApproachPath& appr
     idx_ = 0;
     if (approach_msg.path.poses.size() > 0)
     {
+      activeGoal_ = true;
       goal_reached_ = false;
     }
     else
     {
+      activeGoal_ = false;
       goal_reached_ = true;
       ROS_WARN_STREAM("Received empty path!");
     }
