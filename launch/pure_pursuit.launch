@@ -3,9 +3,8 @@
   <remap from="/odometry" to="/sensors/odometry/pose"/>
   <remap from="/cmd_vel" to="/sensors/odometry/velocity/cmd"/>
   <remap from="/path_segment" to="/pure_pursuit/path"/>
+  <remap from="/arrived" to="/pure_pursuit/path_reached"/>
   <node pkg="pure_pursuit" type="pure_pursuit" name="pure_pursuit" output="screen">
-  	<param name="max_rotational_velocity" value="0.8"/> 
-  	<param name="linear_velocity" value="1.3"/> 
   </node>
 
 </launch>
