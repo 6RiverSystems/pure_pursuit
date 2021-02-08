@@ -204,7 +204,7 @@ void PurePursuit::computeVelocities(nav_msgs::Odometry odom)
       double yt = lookahead_.transform.translation.y;
       double ld_2 = ld_ * ld_;
       cmd_vel_.angular.z = std::min( 2*v_ / ld_2 * yt, w_max_ );
-      cmd_vel_.angular.z = std::max( 2*v_ / ld_2 * yt, -1 * w_max_ );
+      cmd_vel_.angular.z = std::max( cmd_vel_.angular.z, -1 * w_max_ );
 
       // Set linear velocity for tracking.
       cmd_vel_.linear.x = v_;
@@ -250,7 +250,7 @@ void PurePursuit::receivePath(const srslib_framework::PipeLoopApproachPath& appr
   // path is feasible.
   // Callbacks are non-interruptible, so this will
   // not interfere with velocity computation callback.
-  pub_arrived_.publish(approach_msg.path);
+  pub_path_.publish(approach_msg.path);
   if (approach_msg.header.frame_id == map_frame_id_)
   {
     path_ = approach_msg.path;
