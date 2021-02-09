@@ -70,11 +70,13 @@ private:
   unsigned idx_;
   bool goal_reached_;
   geometry_msgs::Twist cmd_vel_;
+
+  bool activeGoal_ = false;
   
   // Ros infrastructure
   ros::NodeHandle nh_, nh_private_;
   ros::Subscriber sub_odom_, sub_path_;
-  ros::Publisher pub_vel_, pub_arrived_; //, pub_acker_;
+  ros::Publisher pub_vel_, pub_arrived_, pub_path_; //, pub_acker_;
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
   tf2_ros::TransformBroadcaster tf_broadcaster_;
@@ -103,10 +105,11 @@ PurePursuit::PurePursuit() : ld_(1.0), v_max_(0.1), v_(v_max_), w_max_(1.0), pos
   lookahead_.header.frame_id = robot_frame_id_;
   lookahead_.child_frame_id = lookahead_frame_id_;
   
-  sub_path_ = nh_.subscribe("path_segment", 1, &PurePursuit::receivePath, this);
+  sub_path_ = nh_.subscribe("goal", 1, &PurePursuit::receivePath, this);
   sub_odom_ = nh_.subscribe("odometry", 1, &PurePursuit::computeVelocities, this);
   pub_vel_ = nh_.advertise<geometry_msgs::Twist>("cmd_vel", 1);
   pub_arrived_ = nh_.advertise<std_msgs::Bool>("arrived", 1);
+  pub_path_ = nh_.advertise<nav_msgs::Path>("path", 1);
 }
 
 void PurePursuit::computeVelocities(nav_msgs::Odometry odom)
@@ -201,6 +204,7 @@ void PurePursuit::computeVelocities(nav_msgs::Odometry odom)
       double yt = lookahead_.transform.translation.y;
       double ld_2 = ld_ * ld_;
       cmd_vel_.angular.z = std::min( 2*v_ / ld_2 * yt, w_max_ );
+      cmd_vel_.angular.z = std::max( cmd_vel_.angular.z, -1 * w_max_ );
 
       // Set linear velocity for tracking.
       cmd_vel_.linear.x = v_;
@@ -217,13 +221,21 @@ void PurePursuit::computeVelocities(nav_msgs::Odometry odom)
     // Publish the lookahead target transform.
     lookahead_.header.stamp = ros::Time::now();
     tf_broadcaster_.sendTransform(lookahead_);
-    
-    // Publish the velocities
-    pub_vel_.publish(cmd_vel_);
 
-    std_msgs::Bool arrived_msg;
-    arrived_msg.data = goal_reached_;
-    pub_arrived_.publish(arrived_msg);
+    //only publish vel commands when we have an active goal
+    //only publish arrive commands when we have an active goal
+    //reset activeGoal when we have arrived.
+    if(activeGoal_){
+      // Publish the velocities
+      pub_vel_.publish(cmd_vel_);
+      std_msgs::Bool arrived_msg;
+      arrived_msg.data = goal_reached_;
+      pub_arrived_.publish(arrived_msg);
+      if(goal_reached_){
+        activeGoal_ = false;
+      }
+    }
+    
   }
   catch (tf2::TransformException &ex)
   {
@@ -238,7 +250,7 @@ void PurePursuit::receivePath(const srslib_framework::PipeLoopApproachPath& appr
   // path is feasible.
   // Callbacks are non-interruptible, so this will
   // not interfere with velocity computation callback.
-  
+  pub_path_.publish(approach_msg.path);
   if (approach_msg.header.frame_id == map_frame_id_)
   {
     path_ = approach_msg.path;
@@ -247,10 +259,12 @@ void PurePursuit::receivePath(const srslib_framework::PipeLoopApproachPath& appr
     idx_ = 0;
     if (approach_msg.path.poses.size() > 0)
     {
+      activeGoal_ = true;
       goal_reached_ = false;
     }
     else
     {
+      activeGoal_ = false;
       goal_reached_ = true;
       ROS_WARN_STREAM("Received empty path!");
     }
