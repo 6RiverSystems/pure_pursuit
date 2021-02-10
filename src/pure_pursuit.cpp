@@ -265,6 +265,7 @@ void PurePursuit::receivePath(const srslib_framework::PipeLoopApproachPath& appr
     path_ = approach_msg.path;
     v_max_ = approach_msg.max_linear_velocity;
     w_max_ = approach_msg.max_angular_velocity;
+    ld_ = approach_msg.lookahead_distance;
     idx_ = 0;
     if (approach_msg.path.poses.size() > 0)
     {
