@@ -208,7 +208,7 @@ void PurePursuit::computeVelocities(nav_msgs::Odometry odom)
       // Compute the angular velocity.
       // Lateral error is the y-value of the lookahead point (in base_link frame)
       double yt = lookahead_.transform.translation.y;
-      const double ld_adapt = ld_ + yt;
+      const double ld_adapt = ld_ + std::fabs(yt);
       double ld_2 = ld_adapt * ld_adapt;
       cmd_vel_.angular.z = std::min( 2*v_ / ld_2 * yt, w_max_ );
       cmd_vel_.angular.z = std::max( cmd_vel_.angular.z, -1 * w_max_ );
