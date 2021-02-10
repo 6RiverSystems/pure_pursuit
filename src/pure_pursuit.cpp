@@ -66,6 +66,7 @@ private:
   double ld_, pos_tol_;
   // Generic control variables
   double v_max_, v_, w_max_;
+  double current_speed_ = 0.0;
   nav_msgs::Path path_;
   unsigned idx_;
   bool goal_reached_;
@@ -105,17 +106,18 @@ PurePursuit::PurePursuit() : ld_(1.0), v_max_(0.1), v_(v_max_), w_max_(1.0), pos
   lookahead_.header.frame_id = robot_frame_id_;
   lookahead_.child_frame_id = lookahead_frame_id_;
   
-  sub_path_ = nh_.subscribe("goal", 1, &PurePursuit::receivePath, this);
-  sub_odom_ = nh_.subscribe("odometry", 1, &PurePursuit::computeVelocities, this);
+  sub_path_ = nh_.subscribe("/pure_pursuit/goal", 1, &PurePursuit::receivePath, this);
+  sub_odom_ = nh_.subscribe("/sensors/odometry/pose", 1, &PurePursuit::computeVelocities, this);
   pub_vel_ = nh_.advertise<geometry_msgs::Twist>("cmd_vel", 1);
-  pub_arrived_ = nh_.advertise<std_msgs::Bool>("arrived", 1);
-  pub_path_ = nh_.advertise<nav_msgs::Path>("path", 1);
+  pub_arrived_ = nh_.advertise<std_msgs::Bool>("/pure_pursuit/arrived", 1);
+  pub_path_ = nh_.advertise<nav_msgs::Path>("/pure_pursuit/path", 1);
 }
 
 void PurePursuit::computeVelocities(nav_msgs::Odometry odom)
 {
   // The velocity commands are computed, each time a new Odometry message is received.
   // Odometry is not used directly, but through the tf tree.
+  current_speed_ = odom.twist.twist.linear.x;
 
   // Get the current robot pose
   geometry_msgs::TransformStamped tf;
@@ -197,14 +199,21 @@ void PurePursuit::computeVelocities(nav_msgs::Odometry odom)
 
       // Compute linear velocity.
       // Right now,this is not very smart :)
-      v_ = copysign(v_max_, v_);
+      // v_ = copysign(v_max_, v_);
+
+      // const double accel = 1.0 - (v_max_ - current_speed_);
+      // v_ = std::min(current_speed_ + accel * 0.05, v_max_);
+      v_ = std::min(current_speed_ + 0.1, v_max_);
       
       // Compute the angular velocity.
       // Lateral error is the y-value of the lookahead point (in base_link frame)
       double yt = lookahead_.transform.translation.y;
-      double ld_2 = ld_ * ld_;
+      const double ld_adapt = ld_ + yt;
+      double ld_2 = ld_adapt * ld_adapt;
       cmd_vel_.angular.z = std::min( 2*v_ / ld_2 * yt, w_max_ );
       cmd_vel_.angular.z = std::max( cmd_vel_.angular.z, -1 * w_max_ );
+
+      ROS_DEBUG_STREAM("Sending velocity: " << v_ << " LKA: " << ld_adapt);
 
       // Set linear velocity for tracking.
       cmd_vel_.linear.x = v_;

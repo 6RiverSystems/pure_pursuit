@@ -31,9 +31,9 @@ def messageCreation(message, cmd, startColor, endColor, startSegment, endSegment
 
 class FigureEight:
 	VEL_COM_TOPIC = "/sensors/odometry/velocity/cmd"
-	GOAL_TOPIC = "/path_segment"
+	GOAL_TOPIC = "/pure_pursuit/goal"
 	LIGHT_TOPIC = "/drivers/brainstem/cmd/update_tote_lights"
-	ARRIVED_TOPIC = "/arrived"
+	ARRIVED_TOPIC = "/pure_pursuit/arrived"
 	global rospy
 
 	def __init__(self, offsetX, offsetY, radius):
@@ -90,7 +90,7 @@ class FigureEight:
 		approach_msg.max_linear_velocity = 1.0
 		approach_msg.max_angular_velocity = 0.6
 		self.goal_pub.publish(approach_msg)
-		print "woop"
+		print "woop - sent new goal (path)"
 		self.sendGoal = False
 
 	def velocityCmdCallback(self, msg):
@@ -120,6 +120,7 @@ class FigureEight:
 	
 	def arrivedCallback(self, msg):
 		self.sendGoal = msg.data
+		# pass
 
 		
 
