@@ -208,7 +208,7 @@ void PurePursuit::computeVelocities(nav_msgs::Odometry odom)
       // Compute the angular velocity.
       // Lateral error is the y-value of the lookahead point (in base_link frame)
       double yt = lookahead_.transform.translation.y;
-      const double ld_adapt = ld_ + yt;
+      const double ld_adapt = ld_ + std::fabs(yt);
       double ld_2 = ld_adapt * ld_adapt;
       cmd_vel_.angular.z = std::min( 2*v_ / ld_2 * yt, w_max_ );
       cmd_vel_.angular.z = std::max( cmd_vel_.angular.z, -1 * w_max_ );
@@ -265,6 +265,7 @@ void PurePursuit::receivePath(const srslib_framework::PipeLoopApproachPath& appr
     path_ = approach_msg.path;
     v_max_ = approach_msg.max_linear_velocity;
     w_max_ = approach_msg.max_angular_velocity;
+    ld_ = approach_msg.lookahead_distance;
     idx_ = 0;
     if (approach_msg.path.poses.size() > 0)
     {
