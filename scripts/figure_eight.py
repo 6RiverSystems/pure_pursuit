@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 import rospy
-from std_msgs.msg import String, Header
+from std_msgs.msg import String, Header, Bool
 from nav_msgs.msg import Odometry, Path
 from geometry_msgs.msg import Twist, PoseStamped
 import math
 import sys
 import time
 import tf
-from srslib_framework.msg import MsgUpdateToteLights
+from srslib_framework.msg import MsgUpdateToteLights, PipeLoopApproachPath
 
 
 def messageCreation(message, cmd, startColor, endColor, startSegment, endSegment, freq):
@@ -31,8 +31,9 @@ def messageCreation(message, cmd, startColor, endColor, startSegment, endSegment
 
 class FigureEight:
 	VEL_COM_TOPIC = "/sensors/odometry/velocity/cmd"
-	GOAL_TOPIC = "/path_segment"
+	GOAL_TOPIC = "/pure_pursuit/goal"
 	LIGHT_TOPIC = "/drivers/brainstem/cmd/update_tote_lights"
+	ARRIVED_TOPIC = "/pure_pursuit/arrived"
 	global rospy
 
 	def __init__(self, offsetX, offsetY, radius):
@@ -40,7 +41,8 @@ class FigureEight:
 		self.offsetY = offsetY
 		self.radius = radius
 		self.vel_sub = rospy.Subscriber(self.VEL_COM_TOPIC, Twist, self.velocityCmdCallback)
-		self.goal_pub = rospy.Publisher(self.GOAL_TOPIC, Path, queue_size=2)
+		self.arrival_sub = rospy.Subscriber(self.ARRIVED_TOPIC, Bool, self.arrivedCallback)
+		self.goal_pub = rospy.Publisher(self.GOAL_TOPIC, PipeLoopApproachPath, queue_size=2)
 		self.light_pub = rospy.Publisher(self.LIGHT_TOPIC, MsgUpdateToteLights, queue_size=5)
 		self.sendGoal = True
 		self.firstLoop = True
@@ -50,6 +52,8 @@ class FigureEight:
 		self.changeLights = 0
 
 	def sendGoalFunc(self):
+		approach_msg = PipeLoopApproachPath()
+		approach_msg.header.frame_id = 'map'
 		path = Path()
 		path.header.seq = self.pathLoop
 		path.header.frame_id = 'map'
@@ -81,16 +85,20 @@ class FigureEight:
 				newPose.pose.orientation.z = newQuaternion[2]
 				newPose.pose.orientation.w = newQuaternion[3]
 				path.poses.append(newPose)
-		self.goal_pub.publish(path)
-		print "woop"
+		
+		approach_msg.path = path
+		approach_msg.max_linear_velocity = 1.0
+		approach_msg.max_angular_velocity = 0.6
+		self.goal_pub.publish(approach_msg)
+		print "woop - sent new goal (path)"
 		self.sendGoal = False
 
 	def velocityCmdCallback(self, msg):
-		if(msg.linear.x == 0 and msg.angular.z == 0):
-			self.sendGoal = True
+		if self.sendGoal:
+			# self.sendGoal = False
 			self.firstLoop =  not self.firstLoop
 			self.pathLoop = self.pathLoop + 1
-		if(self.sendGoal):
+		if self.sendGoal:
 			self.sendGoalFunc()
 		if(rospy.get_time() - self.changeLights > self.timeChange):
 			if(self.redTop):
@@ -109,6 +117,10 @@ class FigureEight:
 				self.light_pub.publish(lightMsg2)
 			self.redTop = not self.redTop
 			self.changeLights = rospy.get_time()
+	
+	def arrivedCallback(self, msg):
+		self.sendGoal = msg.data
+		# pass
 
 		
 

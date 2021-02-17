@@ -14,9 +14,10 @@
 #include <tf2_ros/transform_broadcaster.h>
 #include <geometry_msgs/TransformStamped.h>
 #include <geometry_msgs/Twist.h>
+#include <std_msgs/Bool.h>
 #include <nav_msgs/Path.h>
 #include <nav_msgs/Odometry.h>
-#include <ackermann_msgs/AckermannDriveStamped.h>
+#include <srslib_framework/PipeLoopApproachPath.h>
 
 #include <kdl/frames.hpp>
 
@@ -41,7 +42,7 @@ public:
   void computeVelocities(nav_msgs::Odometry odom);
 
   //! Receive path to follow.
-  void receivePath(nav_msgs::Path path);
+  void receivePath(const srslib_framework::PipeLoopApproachPath& approach_msg);
 
   //! Compute transform that transforms a pose into the robot frame (base_link)
   KDL::Frame transformToBaseLink(const geometry_msgs::Pose& pose,
@@ -58,10 +59,6 @@ public:
   void run();
   
 private:
-
-  //! Dynamic reconfigure callback.
-  void reconfigure(pure_pursuit::PurePursuitConfig &config, uint32_t level);
-  
   // Vehicle parameters
   double L_;
   // Algorithm variables
@@ -69,28 +66,23 @@ private:
   double ld_, pos_tol_;
   // Generic control variables
   double v_max_, v_, w_max_;
-  // Control variables for Ackermann steering
-  // Steering angle is denoted by delta
-  double delta_, delta_vel_, acc_, jerk_, delta_max_;
+  double current_speed_ = 0.0;
   nav_msgs::Path path_;
   unsigned idx_;
   bool goal_reached_;
   geometry_msgs::Twist cmd_vel_;
-  ackermann_msgs::AckermannDriveStamped cmd_acker_;
+
+  bool activeGoal_ = false;
   
   // Ros infrastructure
   ros::NodeHandle nh_, nh_private_;
   ros::Subscriber sub_odom_, sub_path_;
-  ros::Publisher pub_vel_, pub_acker_;
+  ros::Publisher pub_vel_, pub_arrived_, pub_path_; //, pub_acker_;
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
   tf2_ros::TransformBroadcaster tf_broadcaster_;
   geometry_msgs::TransformStamped lookahead_;
-  string map_frame_id_, robot_frame_id_, lookahead_frame_id_, acker_frame_id_;
-
-  dynamic_reconfigure::Server<pure_pursuit::PurePursuitConfig> reconfigure_server_;
-  dynamic_reconfigure::Server<pure_pursuit::PurePursuitConfig>::CallbackType reconfigure_callback_;
-  
+  string map_frame_id_, robot_frame_id_, lookahead_frame_id_;  
 };
 
 PurePursuit::PurePursuit() : ld_(1.0), v_max_(0.1), v_(v_max_), w_max_(1.0), pos_tol_(0.1), idx_(0),
@@ -102,42 +94,30 @@ PurePursuit::PurePursuit() : ld_(1.0), v_max_(0.1), v_(v_max_), w_max_(1.0), pos
   nh_private_.param<double>("wheelbase", L_, 1.0);
   nh_private_.param<double>("lookahead_distance", ld_, 1.0);
   nh_private_.param<double>("linear_velocity", v_, 0.1);
-  nh_private_.param<double>("max_rotational_velocity", w_max_, 1.0);
+  nh_private_.param<double>("max_rotational_velocity", w_max_, 0.6);
   nh_private_.param<double>("position_tolerance", pos_tol_, 0.1);
-  nh_private_.param<double>("steering_angle_velocity", delta_vel_, 100.0);
-  nh_private_.param<double>("acceleration", acc_, 100.0);
-  nh_private_.param<double>("jerk", jerk_, 100.0);
-  nh_private_.param<double>("steering_angle_limit", delta_max_, 1.57);
   nh_private_.param<string>("map_frame_id", map_frame_id_, "map");
   // Frame attached to midpoint of rear axle (for front-steered vehicles).
   nh_private_.param<string>("robot_frame_id", robot_frame_id_, "base_link");
   // Lookahead frame moving along the path as the vehicle is moving.
   nh_private_.param<string>("lookahead_frame_id", lookahead_frame_id_, "lookahead");
-  // Frame attached to midpoint of front axle (for front-steered vehicles).
-  nh_private_.param<string>("ackermann_frame_id", acker_frame_id_, "rear_axle_midpoint");
 
   // Populate messages with static data
   lookahead_.header.frame_id = robot_frame_id_;
   lookahead_.child_frame_id = lookahead_frame_id_;
-
-  cmd_acker_.header.frame_id = acker_frame_id_;
-  cmd_acker_.drive.steering_angle_velocity = delta_vel_;
-  cmd_acker_.drive.acceleration = acc_;
-  cmd_acker_.drive.jerk = jerk_;
   
-  sub_path_ = nh_.subscribe("path_segment", 1, &PurePursuit::receivePath, this);
-  sub_odom_ = nh_.subscribe("odometry", 1, &PurePursuit::computeVelocities, this);
+  sub_path_ = nh_.subscribe("/pure_pursuit/goal", 1, &PurePursuit::receivePath, this);
+  sub_odom_ = nh_.subscribe("/sensors/odometry/pose", 1, &PurePursuit::computeVelocities, this);
   pub_vel_ = nh_.advertise<geometry_msgs::Twist>("cmd_vel", 1);
-  pub_acker_ = nh_.advertise<ackermann_msgs::AckermannDriveStamped>("cmd_acker", 1);
-
-  reconfigure_callback_ = boost::bind(&PurePursuit::reconfigure, this, _1, _2);
-  reconfigure_server_.setCallback(reconfigure_callback_);
+  pub_arrived_ = nh_.advertise<std_msgs::Bool>("/pure_pursuit/arrived", 1);
+  pub_path_ = nh_.advertise<nav_msgs::Path>("/pure_pursuit/path", 1);
 }
 
 void PurePursuit::computeVelocities(nav_msgs::Odometry odom)
 {
   // The velocity commands are computed, each time a new Odometry message is received.
   // Odometry is not used directly, but through the tf tree.
+  current_speed_ = odom.twist.twist.linear.x;
 
   // Get the current robot pose
   geometry_msgs::TransformStamped tf;
@@ -219,51 +199,52 @@ void PurePursuit::computeVelocities(nav_msgs::Odometry odom)
 
       // Compute linear velocity.
       // Right now,this is not very smart :)
-      v_ = copysign(v_max_, v_);
+      // v_ = copysign(v_max_, v_);
+
+      // const double accel = 1.0 - (v_max_ - current_speed_);
+      // v_ = std::min(current_speed_ + accel * 0.05, v_max_);
+      v_ = std::min(current_speed_ + 0.1, v_max_);
       
       // Compute the angular velocity.
       // Lateral error is the y-value of the lookahead point (in base_link frame)
       double yt = lookahead_.transform.translation.y;
-      double ld_2 = ld_ * ld_;
+      const double ld_adapt = ld_ + std::fabs(yt);
+      double ld_2 = ld_adapt * ld_adapt;
       cmd_vel_.angular.z = std::min( 2*v_ / ld_2 * yt, w_max_ );
+      cmd_vel_.angular.z = std::max( cmd_vel_.angular.z, -1 * w_max_ );
 
-      // Compute desired Ackermann steering angle
-      cmd_acker_.drive.steering_angle = std::min( atan2(2 * yt * L_, ld_2), delta_max_ );
-      
+      ROS_DEBUG_STREAM("Sending velocity: " << v_ << " LKA: " << ld_adapt);
+
       // Set linear velocity for tracking.
       cmd_vel_.linear.x = v_;
-      cmd_acker_.drive.speed = v_;
-
-      cmd_acker_.header.stamp = ros::Time::now();
     }
     else
     {
       // We are at the goal!
-
-      // Stop the vehicle
       
       // The lookahead target is at our current pose.
       lookahead_.transform = geometry_msgs::Transform();
       lookahead_.transform.rotation.w = 1.0;
-      
-      // Stop moving.
-      cmd_vel_.linear.x = 0.0;
-      cmd_vel_.angular.z = 0.0;
-
-      cmd_acker_.header.stamp = ros::Time::now();
-      cmd_acker_.drive.steering_angle = 0.0;
-      cmd_acker_.drive.speed = 0.0;
     }
 
     // Publish the lookahead target transform.
     lookahead_.header.stamp = ros::Time::now();
     tf_broadcaster_.sendTransform(lookahead_);
+
+    //only publish vel commands when we have an active goal
+    //only publish arrive commands when we have an active goal
+    //reset activeGoal when we have arrived.
+    if(activeGoal_){
+      // Publish the velocities
+      pub_vel_.publish(cmd_vel_);
+      std_msgs::Bool arrived_msg;
+      arrived_msg.data = goal_reached_;
+      pub_arrived_.publish(arrived_msg);
+      if(goal_reached_){
+        activeGoal_ = false;
+      }
+    }
     
-    // Publish the velocities
-    pub_vel_.publish(cmd_vel_);
-    
-    // Publish ackerman steering setpoints
-    pub_acker_.publish(cmd_acker_);
   }
   catch (tf2::TransformException &ex)
   {
@@ -271,24 +252,29 @@ void PurePursuit::computeVelocities(nav_msgs::Odometry odom)
   }
 }
 
-void PurePursuit::receivePath(nav_msgs::Path new_path)
+void PurePursuit::receivePath(const srslib_framework::PipeLoopApproachPath& approach_msg)
 {
   // When a new path received, the previous one is simply discarded
   // It is up to the planner/motion manager to make sure that the new
   // path is feasible.
   // Callbacks are non-interruptible, so this will
   // not interfere with velocity computation callback.
-  
-  if (new_path.header.frame_id == map_frame_id_)
+  pub_path_.publish(approach_msg.path);
+  if (approach_msg.header.frame_id == map_frame_id_)
   {
-    path_ = new_path;
+    path_ = approach_msg.path;
+    v_max_ = approach_msg.max_linear_velocity;
+    w_max_ = approach_msg.max_angular_velocity;
+    ld_ = approach_msg.lookahead_distance;
     idx_ = 0;
-    if (new_path.poses.size() > 0)
+    if (approach_msg.path.poses.size() > 0)
     {
+      activeGoal_ = true;
       goal_reached_ = false;
     }
     else
     {
+      activeGoal_ = false;
       goal_reached_ = true;
       ROS_WARN_STREAM("Received empty path!");
     }
@@ -296,7 +282,7 @@ void PurePursuit::receivePath(nav_msgs::Path new_path)
   else
   {
     ROS_WARN_STREAM("The path must be published in the " << map_frame_id_
-                    << " frame! Ignoring path in " << new_path.header.frame_id
+                    << " frame! Ignoring path in " << approach_msg.header.frame_id
                     << " frame!");
   }
   
@@ -332,12 +318,6 @@ KDL::Frame PurePursuit::transformToBaseLink(const geometry_msgs::Pose& pose,
 void PurePursuit::run()
 {
   ros::spin();
-}
-
-void PurePursuit::reconfigure(pure_pursuit::PurePursuitConfig &config, uint32_t level)
-{
-  v_max_ = config.max_linear_velocity;
-  w_max_ = config.max_angular_velocity;
 }
 
 int main(int argc, char**argv)

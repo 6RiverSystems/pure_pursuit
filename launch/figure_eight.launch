@@ -1,11 +1,11 @@
 <launch>
- 
+
   <remap from="/odometry" to="/sensors/odometry/pose"/>
   <remap from="/cmd_vel" to="/sensors/odometry/velocity/cmd"/>
   <node pkg="pure_pursuit" type="pure_pursuit" name="figure_eight_" output="screen" />
-  <param name="figure_eight/offsetX" value="40"/> 
+  <param name="figure_eight/offsetX" value="4"/> 
   <param name="figure_eight/offsetY" value="7"/> 
-  <param name="figure_eight/radius" value="4.5"/> 
+  <param name="figure_eight/radius" value="2.5"/> 
   <node pkg="pure_pursuit" type="figure_eight.py" name="figure_eight_py"  output="screen">
   </node>
 
